@@ -1,0 +1,164 @@
+buildscript {
+ext{
+    artifactory_url = "https://artifactory.hdfcbank.com:443/artifactory"
+    artifactory_user = project.hasProperty('artifactory_user') ? project.artifactory_user : System.getenv('cred_USR')
+    artifactory_password = project.hasProperty('artifactory_password') ? project.artifactory_password : System.getenv('cred_PSW')
+    }
+    repositories {
+        maven {
+            url "${artifactory_url}/UPI_ISSUER_Gradle_virtual"
+            credentials {
+                username = "${artifactory_user}"
+                password = "${artifactory_password}"
+            }
+        }
+    }
+    dependencies {
+        classpath "org.jfrog.buildinfo:build-info-extractor-gradle:4+"
+    }
+}
+
+plugins {
+    id 'java'
+    id 'application'
+    id 'jacoco'
+    id 'org.springframework.boot' version '2.7.5'
+    id 'io.spring.dependency-management' version '1.0.15.RELEASE'
+}
+
+allprojects {
+    apply plugin: "com.jfrog.artifactory"
+    apply plugin: "maven-publish"
+}
+
+artifactory {
+    contextUrl = "${artifactory_url}"
+    publish {
+        repository {
+            repoKey = 'UPI_ISSUER_Gradle'
+            username = "${artifactory_user}"
+            password = "${artifactory_password}"
+            maven = true
+            publishPom= true
+            publishArtifacts = true
+            publishBuildInfo = false
+
+        }
+        defaults {
+            publications('mavenJava')
+        }
+    }
+    resolve {
+        repository {
+            repoKey = 'UPI_ISSUER_Gradle_virtual'
+            username = "${artifactory_user}"
+            password = "${artifactory_password}"
+            maven = true
+
+        }
+    }
+}
+
+publishing {
+    publications{
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+}
+
+group = 'com.hdfc.adapter'
+version = '0.1.0'
+application {
+    mainClass = 'com.hdfc.adapter.flexcube.FlexcubeApplication'
+}
+tasks.named("bootJar") {
+    manifest {
+        attributes 'Start-Class': 'com.hdfc.adapter.flexcube.FlexcubeApplication'
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenLocal()
+}
+
+ext {
+    set('springCloudGcpVersion', "3.4.0")
+    set('springCloudVersion', "2021.0.5")
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation('com.google.crypto.tink:tink-gcpkms:1.7.0') {
+        exclude group: "com.google.api-client", module: "google-api-client"
+    }
+    implementation 'com.google.api-client:google-api-client:1.35.2'
+    implementation 'io.github.resilience4j:resilience4j-spring-boot2'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'com.google.cloud:spring-cloud-gcp-starter'
+    implementation 'com.google.cloud:spring-cloud-gcp-starter-trace'
+    implementation 'junit:junit:4.13.1'
+    compileOnly 'org.projectlombok:lombok'
+    runtimeOnly 'com.google.protobuf:protobuf-java-util:3.21.7'
+    annotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    implementation 'com.google.cloud:spring-cloud-gcp-pubsub:3.4.0'
+    implementation 'org.jeasy:easy-random-core:5.0.0'
+    annotationProcessor "org.springframework.boot:spring-boot-configuration-processor"
+    implementation 'ch.qos.logback.contrib:logback-json-classic:0.1.5'
+    implementation 'ch.qos.logback.contrib:logback-jackson:0.1.5'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.14.1'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.springdoc:springdoc-openapi-ui:1.6.14'
+    implementation 'org.springdoc:springdoc-openapi-webmvc-core:1.6.14'
+    implementation 'com.hdfc.adapter:upi_issuer_common_model:1.1.9'
+    implementation 'com.hdfc.adapter:upi_issuer_common_starter:0.0.14'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.9.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.9.0'
+    testImplementation 'org.projectlombok:lombok'
+    implementation 'com.squareup.okhttp3:mockwebserver:4.9.3'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+//    implementation('com.google.code.gson:gson:2.7')
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "com.google.cloud:spring-cloud-gcp-dependencies:${springCloudGcpVersion}"
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
+}
+
+jacocoTestReport {
+    reports {
+        xml.required = true
+        csv.required = true
+    }
+
+}
+
+test.finalizedBy jacocoTestReport
+
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        exceptionFormat = 'full'
+    }
+}
+
